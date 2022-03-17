@@ -42,36 +42,36 @@ class LocationScaleFlow(nn.Module):
     def log_det_J(self,x):
         return -self.log_s.sum(-1)
 
-class DIFDensityEstimatorLayer(nn.Module):
-    def __init__(self,p, K, q_log_density):
+class DIFSamplerLayer(nn.Module):
+    def __init__(self,p, K, p_log_density):
+
         super().__init__()
+
         self.p = p
         self.K = K
 
         self.w = SoftmaxWeight(self.K, self.p)
         self.T = LocationScaleFlow(self.K, self.p)
 
-        self.q_log_density = q_log_density
+        self.q_log_density = None
+        self.p_log_density = p_log_density
+
         self.lr = 5e-3
 
-    def log_v(self,x):
-        with torch.no_grad():
-            z = self.T.forward(x)
-            log_v = self.q_log_density(z) + torch.diagonal(self.w.log_prob(z), 0, -2, -1) + self.T.log_det_J(x)
-            return log_v - torch.logsumexp(log_v, dim = -1, keepdim= True)
-
-    def sample_forward(self,x):
-        with torch.no_grad():
-            z = self.T.forward(x)
-            pick = Categorical(torch.exp(self.log_v(x))).sample()
-            return torch.stack([z[i,pick[i],:] for i in range(z.shape[0])])
+    def log_v(self, x):
+        z = self.T.forward(x)
+        log_v = self.p_log_density(z) + torch.diagonal(self.w.log_prob(z), 0, -2, -1) + self.T.log_det_J(x)
+        return log_v - torch.logsumexp(log_v, dim=-1, keepdim=True)
 
     def sample_backward(self, z):
-        with torch.no_grad():
-            x = self.T.backward(z)
-            pick = Categorical(torch.exp(self.w.log_prob(z))).sample()
-            return torch.stack([x[i,pick[i],:] for i in range(z.shape[0])])
+        x = self.T.backward(z)
+        pick = Categorical(torch.exp(self.w.log_prob(z))).sample()
+        return torch.stack([x[i, pick[i], :] for i in range(z.shape[0])])
+
+    def log_phi(self, z):
+        x = self.T.backward(z)
+        return torch.logsumexp(torch.diagonal(self.log_v(x), 0, -2, -1) + self.p_log_density(x) - self.T.log_det_J(z), dim=-1)
 
     def log_psi(self, x):
         z = self.T.forward(x)
-        return torch.logsumexp(self.q_log_density(z) + torch.diagonal(self.w.log_prob(z),0,-2,-1) + self.T.log_det_J(x),dim=-1)
+        return torch.logsumexp(torch.diagonal(self.w.log_prob(z), 0, -2, -1) + self.q_log_density(z) + self.T.log_det_J(x),dim=-1)

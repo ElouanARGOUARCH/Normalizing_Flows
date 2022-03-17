@@ -1,1 +1,2 @@
+from .dif_sampler_layer import DIFSamplerLayer
 from .real_nvp_sampler_layer import RealNVPSamplerLayer

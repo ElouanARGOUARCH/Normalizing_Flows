@@ -4,119 +4,27 @@ import seaborn as sns
 import torch
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
-from torch import nn
-from torch.distributions import Categorical
-from tqdm import tqdm
-
-from models.location_scale_flow import LocationScaleFlow
-from models.softmax_weight import SoftmaxWeight
-from models.multivariate_normal_reference import MultivariateNormalReference
 from utils.color_visual import *
 
-
-class RealNVPDensityEstimatorLayer(nn.Module):
-    def __init__(self,p,hidden_dim, q_log_density):
-
-        super().__init__()
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.p = p
-        net = []
-        hs = [self.p] + hidden_dim + [2*self.p]
-        for h0, h1 in zip(hs, hs[1:]):
-            net.extend([
-                nn.Linear(h0, h1),
-                nn.Tanh(),
-            ])
-        net.pop()
-        self.net = nn.Sequential(*net)
-
-        self.mask = [torch.cat([torch.zeros(int(self.p/2)), torch.ones(self.p - int(self.p/2))], dim = 0).to(self.device),torch.cat([torch.ones(int(self.p/2)), torch.zeros(self.p - int(self.p/2))], dim = 0).to(self.device)]
-        self.q_log_density = q_log_density
-        self.lr = 5e-4
-        self.to(self.device)
-
-    def sample_forward(self,x):
-        z = x
-        for mask in reversed(self.mask):
-            out = self.net(mask * z)
-            m, log_s = out[...,:self.p]*(1 - mask),out[...,self.p:]*(1 - mask)
-            z = (z*(1 - mask) * torch.exp(log_s)+m) + (mask * z)
-        return z
-
-    def sample_backward(self, z):
-        x = z
-        for mask in self.mask:
-            out = self.net(x*mask)
-            m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
-            x = ((x*(1-mask) -m)/torch.exp(log_s)) + (x*mask)
-        return x
-
-    def log_psi(self, x):
-        z = x
-        log_det = torch.zeros(x.shape[:-1]).to(self.device)
-        for mask in reversed(self.mask):
-            out = self.net(mask * z)
-            m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
-            z = (z*(1 - mask)*torch.exp(log_s) + m) + (mask*z)
-            log_det += torch.sum(log_s, dim = -1)
-        return self.q_log_density(z) + log_det
-
-class DIFDensityEstimatorLayer(nn.Module):
-    def __init__(self,p, K, q_log_density):
-        super().__init__()
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.p = p
-        self.K = K
-
-        self.w = SoftmaxWeight(self.K, self.p,[], 'Linear')
-        self.T = LocationScaleFlow(self.K, self.p)
-
-        self.q_log_density = q_log_density
-        self.lr = 5e-3
-
-    def log_v(self,x):
-        z = self.T.forward(x)
-        log_v = self.q_log_density(z) + torch.diagonal(self.w.log_prob(z), 0, -2, -1) + self.T.log_det_J(x)
-        return log_v - torch.logsumexp(log_v, dim = -1, keepdim= True)
-
-    def sample_forward(self,x):
-        z = self.T.forward(x)
-        pick = Categorical(torch.exp(self.log_v(x))).sample()
-        return torch.stack([z[i,pick[i],:] for i in range(z.shape[0])])
-
-    def sample_backward(self, z):
-        x = self.T.backward(z)
-        pick = Categorical(torch.exp(self.w.log_prob(z))).sample()
-        return torch.stack([x[i,pick[i],:] for i in range(z.shape[0])])
-
-    def log_psi(self, x):
-        z = self.T.forward(x)
-        return torch.logsumexp(self.q_log_density(z) + torch.diagonal(self.w.log_prob(z),0,-2,-1) + self.T.log_det_J(x),dim=-1)
+from torch import nn
+from tqdm import tqdm
+from models_nf.multivariate_normal_reference import MultivariateNormalReference
 
 class MixedModelDensityEstimator(nn.Module):
-    def __init__(self, target_samples,structure, initial_reference=None, estimate_reference = False):
+    def __init__(self, target_samples,structure):
         super().__init__()
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.target_samples = target_samples.to(self.device)
+        self.target_samples = target_samples
         self.p = self.target_samples.shape[-1]
         self.structure = structure
         self.N = len(self.structure)
 
-        if initial_reference == None:
-            self.reference = MultivariateNormalReference(self.p)
-            if estimate_reference:
-                self.reference.estimate_moments(self.target_samples)
-        else:
-            self.reference = initial_reference
+        self.reference = MultivariateNormalReference(self.p)
 
-        self.para_dict = []
-
-        self.model = [structure[-1][0](self.p,self.structure[-1][1], q_log_density=self.reference.log_density).to(self.device)]
-        self.para_dict.insert(0,{'params':self.model[0].parameters(), 'lr': self.model[0].lr})
+        self.model = [structure[-1][0](self.p,self.structure[-1][1], q_log_density=self.reference.log_density)]
         for i in range(self.N - 2, -1, -1):
-            self.model.insert(0, structure[i][0](self.p, structure[i][1], q_log_density=self.model[0].log_psi).to(self.device))
-            self.para_dict.insert(0,{'params':self.model[0].parameters(), 'lr': self.model[0].lr})
-        self.optimizer = torch.optim.Adam(self.para_dict)
+            self.model.insert(0, structure[i][0](self.p, structure[i][1], q_log_density=self.model[0].log_psi))
+        self.loss_values= []
+
 
     def sample_model(self, num_samples):
         with torch.no_grad():
@@ -126,9 +34,10 @@ class MixedModelDensityEstimator(nn.Module):
             return z
 
     def sample_latent(self, x):
-        for i in range(self.N):
-            x = self.model[i].sample_forward(x)
-        return x
+        with torch.no_grad():
+            for i in range(self.N):
+                x = self.model[i].sample_forward(x)
+            return x
 
     def log_density(self, x):
         return self.model[0].log_psi(x)
@@ -137,34 +46,33 @@ class MixedModelDensityEstimator(nn.Module):
         return - self.log_density(batch).mean()
 
     def train(self, epochs, batch_size = None, visual = False):
+
+        self.para_dict = []
+        for i in range(self.N):
+            self.para_dict.insert(-1,{'params':self.model[i].parameters(), 'lr': self.model[i].lr})
+        self.optimizer = torch.optim.Adam(self.para_dict)
+
         if batch_size is None:
             batch_size = self.target_samples.shape[0]
-        perm = torch.randperm(self.target_samples.shape[0])
-        loss_values = [torch.tensor([self.loss(self.target_samples[perm][i*batch_size:min((i+1)*batch_size, self.target_samples.shape[0])]) for i in range(int(self.target_samples.shape[0]/batch_size))]).mean().item()]
-        best_loss = loss_values[0]
-        best_iteration = 0
-        best_parameters = self.state_dict()
+        dataset = torch.utils.data.TensorDataset(self.target_samples)
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(device)
+
         pbar = tqdm(range(epochs))
         for t in pbar:
-            perm = torch.randperm(self.target_samples.shape[0])
-            for i in range(int(self.target_samples.shape[0] / batch_size)):
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+            for i, batch in enumerate(dataloader):
+                x = batch[0].to(device)
                 self.optimizer.zero_grad()
-                batch_loss = self.loss(self.target_samples[perm][i * batch_size:min((i + 1) * batch_size, self.target_samples.shape[0])])
+                batch_loss = self.loss(x)
                 batch_loss.backward()
                 self.optimizer.step()
-
-            iteration_loss = torch.tensor([self.loss(self.target_samples[perm][i * batch_size:min((i + 1) * batch_size, self.target_samples.shape[0])]) for i
-                                           in range(int(self.target_samples.shape[0] / batch_size))]).mean().item()
-            pbar.set_postfix_str('loss = ' + str(iteration_loss))
-            loss_values.append(iteration_loss)
-            if iteration_loss < best_loss:
-                best_loss = iteration_loss
-                best_iteration = t+1
-                best_parameters = self.state_dict()
-
-        self.load_state_dict(best_parameters)
-        if visual:
-            self.train_visual(best_loss, best_iteration, loss_values)
+            with torch.no_grad():
+                iteration_loss = torch.tensor([self.loss(batch[0].to(device)) for i, batch in enumerate(dataloader)]).mean().item()
+            self.loss_values.append(iteration_loss)
+            pbar.set_postfix_str('loss = ' + str(round(iteration_loss,6)))
+        self.to(torch.device('cpu'))
 
     def train_visual(self, best_loss, best_iteration, loss_values):
         fig = plt.figure(figsize=(12, 4))
@@ -201,12 +109,12 @@ class MixedModelDensityEstimator(nn.Module):
             with torch.no_grad():
                 backward_samples = [self.reference.sample(num_samples)]
                 tt = torch.linspace(torch.min(backward_samples[0]), torch.max(backward_samples[0]), linspace).unsqueeze(
-                    1).to(self.device)
+                    1)
                 backward_density = [torch.exp(self.reference.log_density(tt))]
                 backward_linspace = [tt]
                 for i in range(self.N - 1, -1, -1):
                     samples = self.model[i].sample_backward(backward_samples[0])
-                    tt = torch.linspace(torch.min(samples), torch.max(samples), linspace).unsqueeze(1).to(self.device)
+                    tt = torch.linspace(torch.min(samples), torch.max(samples), linspace).unsqueeze(1)
                     density = torch.exp(self.model[i].log_psi(tt))
                     backward_samples.insert(0, samples)
                     backward_linspace.insert(0, tt)
@@ -261,8 +169,8 @@ class MixedModelDensityEstimator(nn.Module):
                 with torch.no_grad():
                     samples = self.reference.sample(num_samples)
                     backward_samples = [samples]
-                    grid = torch.cartesian_prod(torch.linspace(torch.min(samples[:,0]).item(), torch.max(samples[:,0]).item(),delta),torch.linspace(torch.min(samples[:,1]).item(), torch.max(samples[:,1]).item(),delta)).to(self.device)
-                    grid = torch.cat((grid, torch.mean(samples[:,2:], dim = 0)*torch.ones(grid.shape[0], self.p-2).to(self.device)), dim = -1)
+                    grid = torch.cartesian_prod(torch.linspace(torch.min(samples[:,0]).item(), torch.max(samples[:,0]).item(),delta),torch.linspace(torch.min(samples[:,1]).item(), torch.max(samples[:,1]).item(),delta))
+                    grid = torch.cat((grid, torch.mean(samples[:,2:], dim = 0)*torch.ones(grid.shape[0], self.p-2)), dim = -1)
                     density = torch.exp(self.reference.log_density(grid)).reshape(delta,delta).T.cpu().detach()
                     backward_density = [density]
                     x_range = [[torch.min(samples[:,0]).item(), torch.max(samples[:,0]).item()]]
@@ -270,8 +178,8 @@ class MixedModelDensityEstimator(nn.Module):
                     for i in range(self.N - 1, -1, -1):
                         samples = self.model[i].sample_backward(backward_samples[0])
                         backward_samples.insert(0, samples)
-                        grid = torch.cartesian_prod(torch.linspace(torch.min(samples[:, 0]).item(), torch.max(samples[:, 0]).item(), delta),torch.linspace(torch.min(samples[:, 1]).item(), torch.max(samples[:, 1]).item(), delta)).to(self.device)
-                        grid = torch.cat((grid, torch.zeros(grid.shape[0], self.p - 2).to(self.device)), dim=-1)
+                        grid = torch.cartesian_prod(torch.linspace(torch.min(samples[:, 0]).item(), torch.max(samples[:, 0]).item(), delta),torch.linspace(torch.min(samples[:, 1]).item(), torch.max(samples[:, 1]).item(), delta))
+                        grid = torch.cat((grid, torch.zeros(grid.shape[0], self.p - 2)), dim=-1)
                         density = torch.exp(self.model[i].log_psi(grid)).reshape(delta, delta).T.cpu().detach()
                         backward_density.insert(0, density)
                         x_range.insert(0,[torch.min(samples[:,0]).item(), torch.max(samples[:,0]).item()])
@@ -399,7 +307,7 @@ class MixedModelDensityEstimator(nn.Module):
 
         else:
             dim_displayed = 5
-            perm = torch.randperm(self.p).to(self.device)
+            perm = torch.randperm(self.p)
             num_samples = min(num_samples, self.target_samples.shape[0])
             with torch.no_grad():
                 backward_samples = [self.reference.sample(num_samples)]

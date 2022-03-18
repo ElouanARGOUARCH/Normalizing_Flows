@@ -22,8 +22,9 @@ class RealNVPSamplerLayer(nn.Module):
 
     def log_phi(self,z):
         x = z
-        log_det = torch.zeros(z.shape[:-1])
+        log_det = torch.zeros(z.shape[:-1]).to(z.device)
         for mask in self.mask:
+            mask = mask.to(z.device)
             out = self.net(x*mask)
             m, log_s = out[...,:self.p]*(1 - mask),out[...,self.p:]* (1 - mask)
             x = (x*(1-mask) -m)/torch.exp(log_s) + x*mask

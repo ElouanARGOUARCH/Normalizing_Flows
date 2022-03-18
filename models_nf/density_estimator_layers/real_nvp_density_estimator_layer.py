@@ -39,8 +39,9 @@ class RealNVPDensityEstimatorLayer(nn.Module):
 
     def log_psi(self, x):
         z = x
-        log_det = torch.zeros(x.shape[:-1])
+        log_det = torch.zeros(x.shape[:-1]).to(x.device)
         for mask in reversed(self.mask):
+            mask = mask.to(x.device)
             out = self.net(mask * z)
             m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
             z = (z*(1 - mask)*torch.exp(log_s) + m) + (mask*z)

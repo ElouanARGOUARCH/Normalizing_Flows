@@ -37,9 +37,12 @@ class MixedModelSampler(nn.Module):
         return - self.proxy_log_density(batch).mean()
 
     def train(self, num_samples, epochs, batch_size):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(device)
         self.para_dict = []
         for model in self.model:
             self.para_dict.insert(-1, {'params': model.parameters(), 'lr': model.lr})
+            model.to(device)
         self.optimizer = torch.optim.Adam(self.para_dict)
 
         if batch_size is None:
@@ -47,9 +50,6 @@ class MixedModelSampler(nn.Module):
 
         reference_samples = self.reference.sample(num_samples)
         dataset = torch.utils.data.TensorDataset(reference_samples)
-
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.to(device)
 
         pbar = tqdm(range(epochs))
         for t in pbar:
@@ -65,4 +65,7 @@ class MixedModelSampler(nn.Module):
                     [self.loss(batch[0].to(device)) for i, batch in enumerate(dataloader)]).mean().item()
             self.loss_values.append(iteration_loss)
             pbar.set_postfix_str('loss = ' + str(round(iteration_loss, 6)))
+
+        for model in self.model:
+            model.to(torch.device('cpu'))
         self.to(torch.device('cpu'))

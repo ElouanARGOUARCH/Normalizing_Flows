@@ -164,8 +164,8 @@ class Target:
             mvn_target = MultivariateNormal(means, covs)
             cat = Categorical(comp / torch.sum(comp))
             mix_target = MixtureSameFamily(cat, mvn_target)
-            self.target_log_density = lambda samples: mix_target.log_prob(samples.cpu()).to(cuda)
-            self.target_samples = mix_target.sample([num_samples]).to(cuda)
+            self.target_log_density = lambda samples: mix_target.log_prob(samples.cpu()).to(samples.device)
+            self.target_samples = mix_target.sample([num_samples])
 
         if choice == "Test":
             self.p = 1

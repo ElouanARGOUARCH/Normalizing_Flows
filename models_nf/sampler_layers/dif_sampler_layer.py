@@ -60,7 +60,7 @@ class DIFSamplerLayer(nn.Module):
 
     def log_v(self, x):
         z = self.T.forward(x)
-        log_v = self.p_log_density(z) + torch.diagonal(self.w.log_prob(z), 0, -2, -1) + self.T.log_det_J(x)
+        log_v = self.q_log_density(z) + torch.diagonal(self.w.log_prob(z), 0, -2, -1) + self.T.log_det_J(x)
         return log_v - torch.logsumexp(log_v, dim=-1, keepdim=True)
 
     def sample_backward(self, z):

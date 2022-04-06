@@ -38,18 +38,17 @@ class MixedModelDensityEstimator(nn.Module):
         return - self.log_density(batch).mean()
 
     def train(self, epochs, batch_size = None):
-
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(device)
         self.para_dict = []
         for model in self.model:
             self.para_dict.insert(-1,{'params':model.parameters(), 'lr': model.lr})
+            model.to(device)
         self.optimizer = torch.optim.Adam(self.para_dict)
 
         if batch_size is None:
             batch_size = self.target_samples.shape[0]
         dataset = torch.utils.data.TensorDataset(self.target_samples)
-
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.to(device)
 
         pbar = tqdm(range(epochs))
         for t in pbar:
@@ -64,4 +63,6 @@ class MixedModelDensityEstimator(nn.Module):
                 iteration_loss = torch.tensor([self.loss(batch[0].to(device)) for i, batch in enumerate(dataloader)]).mean().item()
             self.loss_values.append(iteration_loss)
             pbar.set_postfix_str('loss = ' + str(round(iteration_loss,6)))
-        self.to(torch.device('cpu'))
+        self.to('cpu')
+        for model in self.model:
+            model.to(torch.device('cpu'))

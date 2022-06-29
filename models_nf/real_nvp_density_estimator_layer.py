@@ -17,7 +17,7 @@ class RealNVPDensityEstimatorLayer(nn.Module):
 
         self.mask = [torch.cat([torch.zeros(int(self.p/2)), torch.ones(self.p - int(self.p/2))], dim = 0),torch.cat([torch.ones(int(self.p/2)), torch.zeros(self.p - int(self.p/2))], dim = 0)]
         self.q_log_density = q_log_density
-        self.lr = 5e-4
+        self.lr = 5e-3
 
     def sample_forward(self,x):
         with torch.no_grad():

@@ -1,1 +1,2 @@
-git+https://github.com/ElouanARGOUARCH/TargetExamples.git
+jupyter
+git+https://github.com/ElouanARGOUARCH/Normalizing_Flows.git

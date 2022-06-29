@@ -34,7 +34,7 @@ class MixedModelSampler(nn.Module):
         return self.model[-1].log_phi(z)
 
     def loss(self, batch):
-        return - self.proxy_log_density(batch).mean()
+        return (self.reference.log_density(batch)-self.proxy_log_density(batch)).mean()
 
     def train(self, num_samples, epochs, batch_size):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

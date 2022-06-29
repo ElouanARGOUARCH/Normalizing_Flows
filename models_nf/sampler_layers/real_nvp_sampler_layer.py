@@ -32,21 +32,19 @@ class RealNVPSamplerLayer(nn.Module):
         return self.p_log_density(x) + log_det
 
     def sample_backward(self, z):
-        with torch.no_grad():
-            x = z
-            for mask in self.mask:
-                out = self.net(x*mask)
-                m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
-                x = (x*(1-mask) -m)/torch.exp(log_s) + x*mask
-            return x
+        x = z
+        for mask in self.mask:
+            out = self.net(x*mask)
+            m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
+            x = (x*(1-mask) -m)/torch.exp(log_s) + x*mask
+        return x
 
     def log_psi(self, x):
-        with torch.no_grad():
-            z = x
-            log_det = torch.zeros(x.shape[:-1])
-            for mask in reversed(self.mask):
-                out = self.net(mask * z)
-                m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
-                z = z*(1 - mask) * torch.exp(log_s) + m + mask * z
-                log_det += torch.sum(log_s, dim = -1)
-            return self.q_log_density(z) + log_det
+        z = x
+        log_det = torch.zeros(x.shape[:-1])
+        for mask in reversed(self.mask):
+            out = self.net(mask * z)
+            m, log_s = out[...,:self.p]* (1 - mask),out[...,self.p:]* (1 - mask)
+            z = z*(1 - mask) * torch.exp(log_s) + m + mask * z
+            log_det += torch.sum(log_s, dim = -1)
+        return self.q_log_density(z) + log_det

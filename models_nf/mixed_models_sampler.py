@@ -21,6 +21,12 @@ class MixedModelSampler(nn.Module):
         self.model[-1].q_log_density = self.reference.log_density
         self.loss_values = []
 
+    def compute_number_params(self):
+        number_params = 0
+        for model in self.model:
+            number_params += sum(p.numel() for p in model.parameters() if p.requires_grad)
+        return number_params
+
     def sample(self, num_samples):
         z = self.reference.sample(num_samples)
         for i in range(self.N - 1, -1, -1):
@@ -70,7 +76,7 @@ class MixedModelSampler(nn.Module):
                 iteration_loss = torch.tensor(
                     [self.loss(batch[0].to(device)) for i, batch in enumerate(dataloader)]).mean().item()
             self.loss_values.append(iteration_loss)
-            pbar.set_postfix_str('loss = ' + str(round(iteration_loss, 6)))
+            pbar.set_postfix_str('loss = ' + str(round(iteration_loss,6)) + ' ; device: ' + str(device))
 
         for model in self.model:
             model.to(torch.device('cpu'))

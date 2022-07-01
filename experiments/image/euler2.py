@@ -1,0 +1,37 @@
+import numpy as np
+import torch
+from matplotlib import image
+from torch import nn
+from models_nf import MixedModelDensityEstimator, RealNVPDensityEstimatorLayer
+
+torch.manual_seed(0)
+number_runs = 10
+
+rgb = image.imread("euler.jpg")
+lines, columns = rgb.shape[:-1]
+def rgb2gray(rgb):
+    return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
+grey = torch.tensor(rgb2gray(rgb))
+
+for i in range(number_runs):
+    #Sample data according to image
+    vector_density = grey.flatten()
+    vector_density = vector_density/torch.sum(vector_density)
+    lignes, colonnes = grey.shape
+
+    num_samples = 300000
+    cat = torch.distributions.Categorical(probs = vector_density)
+    categorical_samples = cat.sample([num_samples])
+    target_samples = torch.cat([(categorical_samples//colonnes).unsqueeze(-1), (categorical_samples%colonnes).unsqueeze(-1)], dim = -1) + torch.rand([num_samples,2])
+
+    num_samples = target_samples.shape[0]
+    epochs = 1000
+    batch_size = 30000
+    structure = [[RealNVPDensityEstimatorLayer, [128, 128, 128]], [RealNVPDensityEstimatorLayer, [128, 128, 128]],
+                 [RealNVPDensityEstimatorLayer, [128, 128, 128]], [RealNVPDensityEstimatorLayer, [128, 128, 128]]]
+    realnvp = MixedModelDensityEstimator(target_samples, structure)
+
+    realnvp.train(epochs, batch_size)
+
+    filename = 'runs2/euler_rnvp' + str(i) + '.sav'
+    torch.save(realnvp,filename)

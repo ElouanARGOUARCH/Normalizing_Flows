@@ -18,11 +18,11 @@ class MixedModelDensityEstimator(nn.Module):
             self.model.insert(0, structure[i][0](self.p, structure[i][1], q_log_density=self.model[0].log_psi))
         self.loss_values= []
 
-    def number_params(self):
-        number_parameters = 0
+    def compute_number_params(self):
+        number_params = 0
         for model in self.model:
-            number_parameters+= sum(p.numel() for p in model.parameters() if p.requires_grad)
-        return number_parameters
+            number_params += sum(p.numel() for p in model.parameters() if p.requires_grad)
+        return number_params
 
     def sample_model(self, num_samples):
         with torch.no_grad():
@@ -68,7 +68,8 @@ class MixedModelDensityEstimator(nn.Module):
             with torch.no_grad():
                 iteration_loss = torch.tensor([self.loss(batch[0].to(device)) for i, batch in enumerate(dataloader)]).mean().item()
             self.loss_values.append(iteration_loss)
-            pbar.set_postfix_str('loss = ' + str(round(iteration_loss,6)))
+            pbar.set_postfix_str('loss = ' + str(round(iteration_loss,6)) + ' ; device: ' + str(device))
+
         self.to('cpu')
         for model in self.model:
             model.to(torch.device('cpu'))

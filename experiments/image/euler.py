@@ -22,7 +22,7 @@ for i in range(number_runs):
     num_samples = 300000
     cat = torch.distributions.Categorical(probs = vector_density)
     categorical_samples = cat.sample([num_samples])
-    target_samples = torch.cat([(categorical_samples//colonnes).unsqueeze(-1), (categorical_samples%colonnes).unsqueeze(-1)], dim = -1) + torch.rand([num_samples,2])
+    target_samples = torch.cat([((categorical_samples // columns + torch.rand(num_samples)) / lines).unsqueeze(-1),((categorical_samples % columns + torch.rand(num_samples)) / columns).unsqueeze(-1)],dim=-1)
 
     num_samples = target_samples.shape[0]
     epochs = 1000

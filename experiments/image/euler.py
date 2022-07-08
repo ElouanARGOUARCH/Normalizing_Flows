@@ -32,5 +32,5 @@ for i in range(number_runs):
 
     realnvp.train(epochs, batch_size)
 
-    filename = 'runs/euler_rnvp' + str(i) + '.sav'
+    filename = 'runs_euler_rnvp/euler_rnvp' + str(i) + '.sav'
     torch.save(realnvp,filename)

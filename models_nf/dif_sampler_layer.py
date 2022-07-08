@@ -57,6 +57,7 @@ class DIFSamplerLayer(nn.Module):
         self.p_log_density = p_log_density
 
         self.lr = 5e-3
+        self.weight_decay = 5e-5
 
     def log_v(self, x):
         z = self.T.forward(x)

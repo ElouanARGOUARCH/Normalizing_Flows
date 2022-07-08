@@ -48,7 +48,7 @@ class MixedModelDensityEstimator(nn.Module):
         self.to(device)
         self.para_dict = []
         for model in self.model:
-            self.para_dict.insert(-1,{'params':model.parameters(), 'lr': model.lr})
+            self.para_dict.insert(-1, {'params': model.parameters(), 'lr': model.lr, 'weight_decay':model.weight_decay})
             model.to(device)
         self.optimizer = torch.optim.Adam(self.para_dict)
 

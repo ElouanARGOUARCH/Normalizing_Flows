@@ -19,6 +19,7 @@ class RealNVPSamplerLayer(nn.Module):
         self.q_log_density = None
         self.p_log_density = p_log_density
         self.lr = 5e-3
+        self.weight_decay = 5e-5
 
     def log_phi(self,z):
         x = z

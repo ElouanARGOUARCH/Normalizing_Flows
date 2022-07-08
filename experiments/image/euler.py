@@ -27,8 +27,7 @@ for i in range(number_runs):
     num_samples = target_samples.shape[0]
     epochs = 1000
     batch_size = 30000
-    structure = [[RealNVPDensityEstimatorLayer, [128, 128, 128]], [RealNVPDensityEstimatorLayer, [128, 128, 128]],
-                 [RealNVPDensityEstimatorLayer, [128, 128, 128]], [RealNVPDensityEstimatorLayer, [128, 128, 128]]]
+    structure = [[RealNVPDensityEstimatorLayer, [128, 128, 128]], [RealNVPDensityEstimatorLayer, [128, 128, 128]]]
     realnvp = MixedModelDensityEstimator(target_samples, structure)
 
     realnvp.train(epochs, batch_size)

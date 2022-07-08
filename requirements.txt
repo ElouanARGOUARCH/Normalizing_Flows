@@ -1,2 +1,0 @@
-jupyter
-git+https://github.com/ElouanARGOUARCH/Normalizing_Flows.git

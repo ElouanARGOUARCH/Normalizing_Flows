@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 class NeuralSplineFlow(nn.Module):
     def __init__(self, target_samples,K, hidden_units, hidden_layers):
+        super.__init__(self)
         self.target_samples = target_samples
         self.K = K
         self.hidden_units = hidden_units

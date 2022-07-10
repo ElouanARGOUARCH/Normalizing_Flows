@@ -2,16 +2,15 @@ import numpy as np
 import torch
 from matplotlib import image
 import matplotlib.pyplot as plt
-
 torch.manual_seed(0)
-number_runs = 10
+number_runs = 20
 
 from models_nf import NeuralSplineFlow
 rgb = image.imread("euler.jpg")
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
 grey = torch.tensor(rgb2gray(rgb))
-loss_values = []
+list_score_nll = []
 
 for i in range(number_runs):
     #Sample data according to image
@@ -29,6 +28,20 @@ for i in range(number_runs):
     epochs = 1000
     batch_size = 30000
     nsf.train(epochs, batch_size)
+    list_score_nll.append(torch.tensor([nsf.loss_values[-1]]))
+    with torch.no_grad():
+        grid = torch.cartesian_prod(torch.linspace(0, 1, lines), torch.linspace(0, 1, columns))
+        density = torch.exp(nsf.model.log_prob(grid)).reshape(lines, columns).T
+        figure = plt.figure(figsize=(12, 8))
+        ax = figure.add_subplot(111)
+        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+        ax.imshow(torch.flip(torch.flip(density.T, [0, 1]), [0, 1]), extent=[0, columns, 0, lines])
+        filename_png = 'euler_nsf' + str(i) + '.png'
+        figure.savefig(filename_png)
 
     filename = 'runs_euler_nsf' + str(i) + '.sav'
     torch.save(nsf.state_dict(), filename)
+
+f = open('score.txt', 'w')
+f.write('mean score NLL = ' + str(torch.mean(torch.cat(list_score_nll), dim = 0).item()) +'\n')
+f.write('std NLL= ' + str(torch.std(torch.cat(list_score_nll), dim = 0).item()))

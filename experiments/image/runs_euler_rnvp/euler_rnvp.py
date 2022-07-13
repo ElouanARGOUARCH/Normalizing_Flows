@@ -17,15 +17,15 @@ for i in range(number_runs):
     vector_density = vector_density/torch.sum(vector_density)
     lines, columns = grey.shape
 
-    num_samples = 300000
+    num_samples = 3000
     cat = torch.distributions.Categorical(probs = vector_density)
     categorical_samples = cat.sample([num_samples])
     target_samples = torch.cat([((categorical_samples // columns + torch.rand(num_samples)) / lines).unsqueeze(-1),((categorical_samples % columns + torch.rand(num_samples)) / columns).unsqueeze(-1)],dim=-1)
 
     real_nvp = RealNVP(target_samples, 60, None, None)
 
-    epochs = 1000
-    batch_size = 30000
+    epochs = 10
+    batch_size = 3000
     real_nvp.train(epochs, batch_size)
 
     filename = 'runs_euler_rnvp' + str(i) + '.sav'

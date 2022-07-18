@@ -22,7 +22,7 @@ for i in range(number_runs):
     categorical_samples = cat.sample([num_samples])
     target_samples = torch.cat([((categorical_samples // columns + torch.rand(num_samples)) / lines).unsqueeze(-1),((categorical_samples % columns + torch.rand(num_samples)) / columns).unsqueeze(-1)],dim=-1)
 
-    real_nvp = RealNVP(target_samples, 30, None, None)
+    real_nvp = RealNVP(target_samples, 8, None, None)
 
     epochs = 1000
     batch_size = 30000

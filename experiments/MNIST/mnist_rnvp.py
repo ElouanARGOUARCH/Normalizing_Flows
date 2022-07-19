@@ -1,5 +1,5 @@
 import torch
-from models_nf import NeuralSplineFlow
+from models_nf import MixedModelDensityEstimator, RealNVPDensityEstimatorLayer
 
 ###MNIST###
 
@@ -23,9 +23,9 @@ plt.imshow(target_samples[torch.randint(low = 0, high = num_samples, size = [1])
 
 train_set, test_set = target_samples[:4000], target_samples[4000:]
 
-nsf = NeuralSplineFlow(target_samples, 1, 16, 1)
-print(nsf.p)
-nsf.train(1, 10000)
+structure = [[RealNVPDensityEstimatorLayer,[256,256,256]] for i in range(10)]
+rnvp = MixedModelDensityEstimator(target_samples, structure)
+rnvp.train(1, 10000)
 
-filename = 'nsf_mnist.sav'
-torch.save(nsf, filename)
+filename = 'rnvp_mnist.sav'
+torch.save(rnvp, filename)

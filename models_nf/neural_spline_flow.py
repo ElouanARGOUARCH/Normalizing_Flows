@@ -18,7 +18,7 @@ class NeuralSplineFlow(nn.Module):
             flows += [nf.flows.LULinearPermute(self.p)]
 
         # Set prior and q0
-        self.q0 = nf.distributions.DiagGaussian(2, trainable=False)
+        self.q0 = nf.distributions.DiagGaussian(self.p, trainable=False)
 
         # Construct flow model
         self.model = nf.NormalizingFlow(q0=self.q0, flows=flows)

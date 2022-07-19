@@ -24,8 +24,8 @@ plt.imshow(target_samples[torch.randint(low = 0, high = num_samples, size = [1])
 
 train_set, test_set = target_samples[:4000], target_samples[4000:]
 
-nsf = NeuralSplineFlow(target_samples, 20, 64, 4)
-nsf.train(1, 60000)
+nsf = NeuralSplineFlow(target_samples, 5, 64, 2)
+nsf.train(1, 10000)
 
 filename = 'nsf_mnist.sav'
 torch.save(nsf, filename)

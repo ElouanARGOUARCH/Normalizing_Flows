@@ -5,7 +5,7 @@ from torch import nn
 from models_nf import MixedModelDensityEstimator, RealNVPDensityEstimatorLayer
 
 torch.manual_seed(0)
-number_runs = 10
+number_runs = 20
 
 rgb = image.imread("euler.jpg")
 lines, columns = rgb.shape[:-1]
@@ -27,7 +27,7 @@ for i in range(number_runs):
     num_samples = target_samples.shape[0]
     epochs = 1000
     batch_size = 30000
-    structure = [[RealNVPDensityEstimatorLayer, [128, 128, 128]], [RealNVPDensityEstimatorLayer, [128, 128, 128]]]
+    structure = [[RealNVPDensityEstimatorLayer, [100, 100, 100]], [RealNVPDensityEstimatorLayer, [100, 100, 100]],[RealNVPDensityEstimatorLayer, [100, 100, 100]]]
     realnvp = MixedModelDensityEstimator(target_samples, structure)
 
     realnvp.train(epochs, batch_size)

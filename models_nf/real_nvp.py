@@ -14,7 +14,7 @@ class RealNVP(nn.Module):
         self.p = target_samples.shape[-1]
         flows = []
         for i in range(self.K):
-            param_map = nf.nets.MLP([1,128,128,128,2], init_zeros=True)
+            param_map = nf.nets.MLP([1,64,64,64,2], init_zeros=True)
             # Add flow layer
             flows.append(nf.flows.AffineCouplingBlock(param_map))
             # Swap dimensions

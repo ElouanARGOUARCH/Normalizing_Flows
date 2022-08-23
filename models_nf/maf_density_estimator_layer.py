@@ -24,6 +24,7 @@ class MAFLayer(nn.Module):
         self.hidden_sizes=hidden_sizes
         self.q_log_density = q_log_density
         self.lr = 5e-5
+        self.weight_decay = 5e-5
 
         hs = [self.p] + self.hidden_sizes + [2*self.p]
         for h0, h1 in zip(hs, hs[1:]):

@@ -5,16 +5,14 @@ import normflow as nf
 from tqdm import tqdm
 
 class RealNVP(nn.Module):
-    def __init__(self, target_samples,K, hidden_units, hidden_layers):
+    def __init__(self, target_samples,K, hidden_units):
         super().__init__()
         self.target_samples = target_samples
         self.K = K
-        self.hidden_units = hidden_units
-        self.hidden_layers = hidden_layers
         self.p = target_samples.shape[-1]
         flows = []
         for i in range(self.K):
-            param_map = nf.nets.MLP([1,100,100,100,2], init_zeros=True)
+            param_map = nf.nets.MLP([1,hidden_units,hidden_units,hidden_units,2], init_zeros=True)
             # Add flow layer
             flows.append(nf.flows.AffineCouplingBlock(param_map))
             # Swap dimensions

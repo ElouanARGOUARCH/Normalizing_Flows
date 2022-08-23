@@ -58,7 +58,7 @@ class MAFLayer(nn.Module):
         m, log_s = out[...,self.p:],out[...,:self.p]
         return m + torch.exp(log_s)*x
 
-    def model_log_psi(self,x):
+    def log_psi(self,x):
         out = self.net(x)
         m, log_s = out[...,self.p:],out[...,:self.p]
         z = m + torch.exp(log_s)*x

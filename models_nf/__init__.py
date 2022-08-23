@@ -6,3 +6,4 @@ from .mixed_models_density_estimator import MixedModelDensityEstimator
 from .mixed_models_sampler import MixedModelSampler
 from .neural_spline_flow import NeuralSplineFlow
 from .real_nvp import RealNVP
+from .maf_density_estimator_layer import MAFLayer, MaskedLinear

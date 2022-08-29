@@ -12,6 +12,7 @@ class MixedModelDensityEstimator(nn.Module):
         self.N = len(self.structure)
 
         self.reference = MultivariateNormalReference(self.p)
+        self.reference.estimate_moments(self.target_samples)
 
         self.model = [structure[-1][0](self.p,self.structure[-1][1], q_log_density=self.reference.log_density)]
         for i in range(self.N - 2, -1, -1):

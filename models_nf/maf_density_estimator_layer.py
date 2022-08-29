@@ -14,7 +14,6 @@ class MaskedLinear(nn.Linear):
     def forward(self, input):
         return F.linear(input, self.mask * self.weight, self.bias)
 
-
 class MAFLayer(nn.Module):
     def __init__(self, p,hidden_sizes, q_log_density):
         super().__init__()
@@ -41,7 +40,6 @@ class MAFLayer(nn.Module):
     def update_masks(self):
         L = len(self.hidden_sizes)
         self.m[-1] = torch.randperm(self.p)
-        print(self.m[-1])
         for l in range(L):
             self.m[l] = torch.randint(torch.min(self.m[l - 1]), self.p - 1, [self.hidden_sizes[l]])
 

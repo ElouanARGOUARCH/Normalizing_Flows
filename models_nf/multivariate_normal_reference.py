@@ -11,7 +11,8 @@ class MultivariateNormalReference(nn.Module):
 
     def estimate_moments(self, samples):
         self.mean = torch.mean(samples, dim = 0)
-        self.cov = torch.cov(samples.T) + 1e-8*torch.eye(self.p)
+        cov = torch.cov(samples.T)
+        self.cov = (cov + cov.T)/2
         self.distribution = torch.distributions.MultivariateNormal(self.mean, self.cov)
 
     def sample(self, num_samples):
@@ -19,5 +20,8 @@ class MultivariateNormalReference(nn.Module):
         #return torch.randn([num_samples, self.p])
 
     def log_density(self, z):
+        mean = self.mean.to(z.device)
+        cov = self.cov.to(z.device)
+        self.distribution = torch.distributions.MultivariateNormal(mean,cov)
         return self.distribution.log_prob(z)
         #return -torch.sum(torch.square(z)/2, dim = -1) - torch.log(torch.tensor([2*torch.pi], device = z.device))*self.p/2

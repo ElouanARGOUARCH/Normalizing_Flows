@@ -32,6 +32,8 @@ class MAFLayer(nn.Module):
                 nn.Tanh(),
             ])
         self.net.pop()
+        self.net[-1].bias = nn.Parameter(torch.zeros_like(self.net[-1].bias))
+        self.net[-1].weight = nn.Parameter(torch.zeros_like(self.net[-1].weight))
         self.net = nn.Sequential(*self.net)
 
         self.m = {}
